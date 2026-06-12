@@ -7,6 +7,10 @@
   <style>
     :root {
       color-scheme: dark;
+      --app-scale: 1;
+      --app-rotation: 0deg;
+      --desktop-app-width: 1280px;
+      --desktop-app-height: 720px;
       --grass-900: #07150d;
       --grass-800: #0d2715;
       --grass-700: #16421f;
@@ -292,59 +296,21 @@
     }
 
     @media (max-width: 860px) {
-      .topbar {
-        grid-template-columns: 1fr;
+      body {
+        position: relative;
       }
 
-      .tabs {
-        width: 100%;
-        overflow-x: auto;
-      }
-
-      .tabs button {
-        flex: 1;
-        min-width: 92px;
-      }
-
-      .mode-panel.active {
-        align-items: stretch;
-        flex-direction: column;
-      }
-
-      .joystick-pair {
-        justify-content: space-between;
-        max-width: 560px;
-        width: calc(100vw - 96px);
-      }
-
-      .hud {
-        top: 10px;
-        padding: 8px 10px;
-      }
-    }
-
-    @media (max-width: 560px) {
-      .topbar {
-        padding: 10px;
-        gap: 9px;
-      }
-
-      .controls {
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-
-      .subtitle,
-      .hud-copy {
-        font-size: 12px;
-      }
-
-      .control-row {
-        justify-content: space-between;
-      }
-
-      .joystick-pair {
-        width: calc(100vw - 88px);
+      .app {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: var(--desktop-app-width);
+        height: var(--desktop-app-height);
+        min-height: var(--desktop-app-height);
+        margin-left: -640px;
+        margin-top: -360px;
+        transform: rotate(var(--app-rotation)) scale(var(--app-scale));
+        transform-origin: center;
       }
     }
   </style>
@@ -414,8 +380,11 @@
   </main>
 
   <script>
+    const DESKTOP_APP_WIDTH = 1280;
+    const DESKTOP_APP_HEIGHT = 720;
     const canvas = document.querySelector("#game");
     const ctx = canvas.getContext("2d");
+    const app = document.querySelector(".app");
     const stage = document.querySelector(".stage");
     const modeButtons = [...document.querySelectorAll("[data-mode]")];
     const panels = [...document.querySelectorAll("[data-panel]")];
@@ -507,11 +476,56 @@
       }
     };
 
+    function updateAppFrame() {
+      const isMobileFrame = window.innerWidth <= 860;
+      const shouldRotate = isMobileFrame && window.innerHeight > window.innerWidth;
+      const logicalWidth = shouldRotate ? DESKTOP_APP_HEIGHT : DESKTOP_APP_WIDTH;
+      const logicalHeight = shouldRotate ? DESKTOP_APP_WIDTH : DESKTOP_APP_HEIGHT;
+      const scale = isMobileFrame ? Math.min(window.innerWidth / logicalWidth, window.innerHeight / logicalHeight) : 1;
+
+      document.documentElement.style.setProperty("--app-scale", String(scale));
+      document.documentElement.style.setProperty("--app-rotation", shouldRotate ? "90deg" : "0deg");
+    }
+
+    function getAppScale() {
+      return Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-scale")) || 1;
+    }
+
+    function isAppRotated() {
+      return getComputedStyle(document.documentElement).getPropertyValue("--app-rotation").trim() === "90deg";
+    }
+
+    function screenDeltaToAppDelta(dx, dy) {
+      if (!isAppRotated()) {
+        return { x: dx, y: dy };
+      }
+      return { x: dy, y: -dx };
+    }
+
+    function getAppPoint(event) {
+      const rect = app.getBoundingClientRect();
+      const scale = getAppScale();
+      const dx = (event.clientX - (rect.left + rect.width / 2)) / scale;
+      const dy = (event.clientY - (rect.top + rect.height / 2)) / scale;
+
+      if (!isAppRotated()) {
+        return {
+          x: app.clientWidth / 2 + dx,
+          y: app.clientHeight / 2 + dy
+        };
+      }
+
+      return {
+        x: app.clientWidth / 2 + dy,
+        y: app.clientHeight / 2 - dx
+      };
+    }
+
     function resize() {
-      const rect = canvas.getBoundingClientRect();
+      updateAppFrame();
       view.dpr = Math.min(window.devicePixelRatio || 1, 2);
-      view.w = Math.max(320, rect.width);
-      view.h = Math.max(240, rect.height);
+      view.w = Math.max(320, canvas.clientWidth);
+      view.h = Math.max(240, canvas.clientHeight);
       canvas.width = Math.round(view.w * view.dpr);
       canvas.height = Math.round(view.h * view.dpr);
       ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
@@ -700,10 +714,10 @@
     }
 
     function getPoint(event) {
-      const rect = canvas.getBoundingClientRect();
+      const point = getAppPoint(event);
       return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
+        x: point.x - canvas.offsetLeft,
+        y: point.y - canvas.offsetTop
       };
     }
 
@@ -1500,16 +1514,19 @@
       function setFromEvent(event) {
         const rect = joy.getBoundingClientRect();
         const radius = rect.width / 2;
+        const radiusCss = joy.clientWidth / 2;
         const centerX = rect.left + radius;
         const centerY = rect.top + radius;
-        const dx = event.clientX - centerX;
-        const dy = event.clientY - centerY;
+        const delta = screenDeltaToAppDelta(event.clientX - centerX, event.clientY - centerY);
+        const dx = delta.x;
+        const dy = delta.y;
         const len = Math.hypot(dx, dy);
         const limit = radius * 0.62;
+        const limitCss = radiusCss * 0.62;
         const clamped = len > limit ? limit / len : 1;
         value.x = (dx * clamped) / limit;
         value.y = (dy * clamped) / limit;
-        knob.style.transform = `translate(calc(-50% + ${value.x * limit}px), calc(-50% + ${value.y * limit}px))`;
+        knob.style.transform = `translate(calc(-50% + ${value.x * limitCss}px), calc(-50% + ${value.y * limitCss}px))`;
         target.x = value.x;
         target.y = value.y;
       }
