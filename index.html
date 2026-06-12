@@ -1,0 +1,1606 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>貓咪狩獵遊戲</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --grass-900: #07150d;
+      --grass-800: #0d2715;
+      --grass-700: #16421f;
+      --grass-600: #22642e;
+      --leaf: #91e35f;
+      --leaf-soft: #c5f289;
+      --dirt: #5f3d21;
+      --dirt-dark: #2a190e;
+      --sand: #f1c66a;
+      --toy: #ffd83d;
+      --toy-hot: #ff7a45;
+      --water: #6ee6ff;
+      --panel: rgba(7, 21, 13, 0.86);
+      --line: rgba(229, 255, 192, 0.22);
+      --text: #f5ffe9;
+      --muted: #bcd4ac;
+      font-family: ui-rounded, "SF Pro Rounded", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--grass-900);
+      color: var(--text);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      height: 100dvh;
+      min-height: 100dvh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(145, 227, 95, 0.16), transparent 32%),
+        linear-gradient(180deg, #0d2e18 0%, #07150d 100%);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7, 21, 13, 0.82);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(19px, 2.2vw, 28px);
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(2, 9, 5, 0.55);
+    }
+
+    .tabs button,
+    .tool-button {
+      min-height: 40px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 0 13px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+    }
+
+    .tabs button:hover,
+    .tool-button:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .tabs button.active {
+      background: var(--leaf);
+      color: #08210f;
+      font-weight: 800;
+    }
+
+    .tool-button {
+      border-color: var(--line);
+      background: rgba(8, 38, 18, 0.72);
+      white-space: nowrap;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #game {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .hud {
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      max-width: min(520px, calc(100% - 32px));
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(7, 21, 13, 0.68);
+      color: var(--text);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+
+    .stage.hide-hud .hud {
+      display: none;
+    }
+
+    .hud-title {
+      margin-bottom: 3px;
+      font-weight: 850;
+    }
+
+    .hud-copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+      padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+    }
+
+    .mode-panel {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 82px;
+    }
+
+    .mode-panel.active {
+      display: flex;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 180px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 190px;
+      accent-color: var(--leaf);
+    }
+
+    .is-hidden {
+      display: none;
+    }
+
+    .joystick-pair {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: clamp(20px, 5vw, 64px);
+      flex: 1;
+      max-width: 640px;
+      width: calc(100vw - 240px);
+      margin: 0 auto;
+    }
+
+    .joy-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      justify-content: center;
+      color: var(--muted);
+      font-size: clamp(24px, 2.6vw, 36px);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .joy-wrap:first-child {
+      flex-direction: row;
+    }
+
+    .joy-wrap:last-child {
+      flex-direction: row-reverse;
+    }
+
+    .joystick {
+      position: relative;
+      width: clamp(96px, 15vw, 132px);
+      aspect-ratio: 1;
+      border: 1px solid rgba(229, 255, 192, 0.28);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(145, 227, 95, 0.12) 0 28%, transparent 29%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.28));
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.38);
+      touch-action: none;
+    }
+
+    .knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 42%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28), inset 0 0 18px rgba(255, 255, 255, 0.18);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .mole-actions {
+      justify-content: flex-end;
+      flex: 1;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 860px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      .tabs button {
+        flex: 1;
+        min-width: 92px;
+      }
+
+      .mode-panel.active {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .joystick-pair {
+        justify-content: space-between;
+        max-width: 560px;
+        width: calc(100vw - 96px);
+      }
+
+      .hud {
+        top: 10px;
+        padding: 8px 10px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .topbar {
+        padding: 10px;
+        gap: 9px;
+      }
+
+      .controls {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .subtitle,
+      .hud-copy {
+        font-size: 12px;
+      }
+
+      .control-row {
+        justify-content: space-between;
+      }
+
+      .joystick-pair {
+        width: calc(100vw - 88px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>貓咪狩獵遊戲</h1>
+        <div class="subtitle">投到電視上，操控高對比玩具，引導貓咪進入追逐狀態。</div>
+      </div>
+      <nav class="tabs" aria-label="遊戲模式">
+        <button class="active" type="button" data-mode="ball">發射球</button>
+        <button type="button" data-mode="rope">揮動繩子</button>
+        <button type="button" data-mode="mole">打地鼠</button>
+      </nav>
+      <button class="tool-button" id="fullscreen" type="button">全螢幕</button>
+    </header>
+
+    <section class="stage" aria-label="遊戲畫面">
+      <canvas id="game"></canvas>
+      <div class="hud" aria-live="polite">
+        <div class="hud-title" id="hudTitle">發射球</div>
+        <div class="hud-copy" id="hudCopy">拖曳畫面選方向，軌跡會預覽反彈路線；放開後球會射出。</div>
+      </div>
+    </section>
+
+    <footer class="controls">
+      <section class="mode-panel active" data-panel="ball">
+        <div class="control-row">
+          <label class="field">
+            發射力道
+            <input id="power" type="range" min="520" max="1500" value="1060">
+          </label>
+          <span class="status-pill" id="ballStatus">準備發射</span>
+          <button class="tool-button is-hidden" id="restartBall" type="button">重新開始</button>
+          <button class="tool-button" id="resetBall" type="button">重置球</button>
+          <button class="tool-button" id="stopBall" type="button">停球</button>
+        </div>
+      </section>
+
+      <section class="mode-panel" data-panel="rope">
+        <div class="joystick-pair">
+          <div class="joy-wrap">
+            <span>移動</span>
+            <div class="joystick" id="moveJoy" aria-label="移動繩子位置" role="application">
+              <div class="knob"></div>
+            </div>
+          </div>
+          <div class="joy-wrap">
+            <span>揮動</span>
+            <div class="joystick" id="waveJoy" aria-label="控制繩子舞動" role="application">
+              <div class="knob"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mode-panel" data-panel="mole">
+        <div class="control-row mole-actions">
+          <span class="status-pill" id="moleStatus">等待洞口輸入</span>
+          <button class="tool-button" id="peekRandom" type="button">隨機露頭</button>
+          <button class="tool-button" id="hideMoles" type="button">全部收回</button>
+        </div>
+      </section>
+    </footer>
+  </main>
+
+  <script>
+    const canvas = document.querySelector("#game");
+    const ctx = canvas.getContext("2d");
+    const stage = document.querySelector(".stage");
+    const modeButtons = [...document.querySelectorAll("[data-mode]")];
+    const panels = [...document.querySelectorAll("[data-panel]")];
+    const hudTitle = document.querySelector("#hudTitle");
+    const hudCopy = document.querySelector("#hudCopy");
+    const powerInput = document.querySelector("#power");
+    const ballStatus = document.querySelector("#ballStatus");
+    const restartBallButton = document.querySelector("#restartBall");
+    const moleStatus = document.querySelector("#moleStatus");
+    const ratImage = new Image();
+    ratImage.src = "assets/rat.png";
+    const upRatImage = new Image();
+    upRatImage.src = "assets/uprat.png";
+
+    const copy = {
+      ball: {
+        title: "發射球",
+        text: "拖曳畫面選方向，軌跡會預覽反彈與進洞機會；放開後球會快速射出。"
+      },
+      rope: {
+        title: "揮動繩子",
+        text: "左搖桿移動位置，右搖桿甩出節奏；尾端亮色逗貓穗會跟著擺動。"
+      },
+      mole: {
+        title: "打地鼠",
+        text: "按住洞口讓老鼠探出，放開就回洞；也可以用隨機露頭製造突發目標。"
+      }
+    };
+
+    const view = {
+      w: 0,
+      h: 0,
+      dpr: 1,
+      mode: "ball",
+      last: performance.now()
+    };
+
+    const pointer = {
+      id: null,
+      down: false,
+      x: 0,
+      y: 0
+    };
+
+    const ball = {
+      x: 180,
+      y: 180,
+      vx: 0,
+      vy: 0,
+      r: 22,
+      aiming: false,
+      aimX: 240,
+      aimY: 180,
+      sunk: false,
+      sink: 0,
+      sinkHole: null,
+      trail: []
+    };
+
+    const rope = {
+      anchorX: 320,
+      anchorY: 160,
+      phase: 0,
+      moveJoy: { x: 0, y: 0 },
+      waveJoy: { x: 0, y: 0 },
+      pullX: 0.35,
+      pullY: 0.82,
+      waveEnergy: 0,
+      waveSpeed: 0
+    };
+
+    const mole = {
+      holes: [],
+      heldPointer: null,
+      heldHole: null,
+      randomTimer: 0,
+      mouse: {
+        x: 0,
+        y: 0,
+        targetX: 0,
+        targetY: 0,
+        direction: 1,
+        phase: 0,
+        pop: 0,
+        popTarget: 0,
+        forcedHole: null,
+        pause: 0.9,
+        ready: false
+      }
+    };
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      view.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      view.w = Math.max(320, rect.width);
+      view.h = Math.max(240, rect.height);
+      canvas.width = Math.round(view.w * view.dpr);
+      canvas.height = Math.round(view.h * view.dpr);
+      ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+
+      if (!ball.hasSized) {
+        resetBall();
+        resetRopePosition();
+        ball.hasSized = true;
+      }
+
+      clampBall();
+      rope.anchorX = clamp(rope.anchorX, 80, view.w - 80);
+      rope.anchorY = clamp(rope.anchorY, 70, view.h - getRopeBottomOffset());
+      buildHoles();
+    }
+
+    function getRopeLength() {
+      return Math.min(280, Math.max(170, view.h * 0.45));
+    }
+
+    function getRopeBottomOffset() {
+      return clamp(view.h * 0.095, 48, 64);
+    }
+
+    function resetRopePosition() {
+      rope.anchorX = view.w * 0.5;
+      rope.anchorY = view.h - getRopeBottomOffset();
+    }
+
+    function resetBall() {
+      ball.x = view.w * 0.24;
+      ball.y = view.h * 0.55;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.aimX = ball.x + Math.min(280, view.w * 0.36);
+      ball.aimY = ball.y - Math.min(110, view.h * 0.18);
+      ball.aiming = false;
+      ball.sunk = false;
+      ball.sink = 0;
+      ball.sinkHole = null;
+      ball.trail.length = 0;
+      setBallStatus("準備發射", false);
+    }
+
+    function clampBall() {
+      ball.x = clamp(ball.x, ball.r, view.w - ball.r);
+      ball.y = clamp(ball.y, ball.r, view.h - ball.r);
+    }
+
+    function getCornerHoles() {
+      const base = clamp(Math.min(view.w, view.h) * 0.075, 36, 58);
+      const inset = base + 22;
+      return [
+        { x: inset, y: inset, rx: base * 1.16, ry: base * 0.68 },
+        { x: view.w - inset, y: inset, rx: base * 1.16, ry: base * 0.68 },
+        { x: inset, y: view.h - inset, rx: base * 1.16, ry: base * 0.68 },
+        { x: view.w - inset, y: view.h - inset, rx: base * 1.16, ry: base * 0.68 }
+      ];
+    }
+
+    function findBallHole(x, y) {
+      return getCornerHoles().find((hole) => {
+        const nx = (x - hole.x) / (hole.rx * 0.92);
+        const ny = (y - hole.y) / (hole.ry * 1.18);
+        return nx * nx + ny * ny <= 1;
+      });
+    }
+
+    function sinkBall(hole) {
+      ball.sunk = true;
+      ball.aiming = false;
+      ball.sink = 0;
+      ball.sinkHole = hole;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.trail.length = 0;
+      setBallStatus("球進洞了", true);
+    }
+
+    function setBallStatus(text, showRestart) {
+      ballStatus.textContent = text;
+      restartBallButton.classList.toggle("is-hidden", !showRestart);
+    }
+
+    function buildHoles() {
+      const columns = view.w < 660 ? 3 : 4;
+      const rows = view.h < 430 ? 2 : 3;
+      const next = [];
+      const startX = view.w * 0.16;
+      const endX = view.w * 0.84;
+      const startY = view.h * 0.3;
+      const endY = view.h * 0.75;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+          const i = row * columns + col;
+          const px = columns === 1 ? view.w / 2 : lerp(startX, endX, col / (columns - 1));
+          const py = rows === 1 ? view.h / 2 : lerp(startY, endY, row / (rows - 1));
+          next.push({
+            index: i,
+            x: px + Math.sin(i * 8.31) * 16,
+            y: py + Math.cos(i * 5.17) * 12,
+            rx: clamp(view.w / (columns * 5.4), 56, 92),
+            ry: clamp(view.w / (columns * 5.4), 56, 92) * 0.62
+          });
+        }
+      }
+      mole.holes = next;
+      syncUndergroundMouse();
+    }
+
+    function holeTunnelCenter(hole) {
+      return {
+        x: hole.x,
+        y: hole.y
+      };
+    }
+
+    function syncUndergroundMouse() {
+      if (!mole.holes.length) return;
+      const mouse = mole.mouse;
+      if (!mouse.ready) {
+        const start = holeTunnelCenter(mole.holes[0]);
+        mouse.x = start.x;
+        mouse.y = start.y;
+        mouse.targetX = start.x;
+        mouse.targetY = start.y;
+        mouse.pause = 0.9;
+        mouse.ready = true;
+        return;
+      }
+
+      if (mouse.forcedHole && !mole.holes.includes(mouse.forcedHole)) {
+        mouse.forcedHole = null;
+        mouse.popTarget = 0;
+      }
+
+      mouse.x = clamp(mouse.x, 0, view.w);
+      mouse.y = clamp(mouse.y, 0, view.h);
+    }
+
+    function pickMouseTarget(preferredHole) {
+      if (!mole.holes.length) return;
+      const mouse = mole.mouse;
+      const current = nearestHole(mouse.x, mouse.y);
+      let hole = preferredHole;
+      if (!hole) {
+        const candidates = mole.holes.filter((item) => item !== current);
+        hole = candidates[Math.floor(Math.random() * candidates.length)] || mole.holes[0];
+      }
+      const center = holeTunnelCenter(hole);
+      mouse.targetX = center.x;
+      mouse.targetY = center.y;
+    }
+
+    function nearestHole(x, y) {
+      let best = null;
+      let bestDistance = Infinity;
+      mole.holes.forEach((hole) => {
+        const center = holeTunnelCenter(hole);
+        const distance = Math.hypot(center.x - x, center.y - y);
+        if (distance < bestDistance) {
+          best = hole;
+          bestDistance = distance;
+        }
+      });
+      return best;
+    }
+
+    function setMode(mode) {
+      view.mode = mode;
+      pointer.down = false;
+      ball.aiming = false;
+      mole.heldPointer = null;
+      mole.heldHole = null;
+      mole.randomTimer = 0;
+      mole.mouse.forcedHole = null;
+      mole.mouse.popTarget = 0;
+
+      modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === mode));
+      hudTitle.textContent = copy[mode].title;
+      hudCopy.textContent = copy[mode].text;
+      stage.classList.toggle("hide-hud", mode === "mole");
+      canvas.style.cursor = mode === "rope" ? "grab" : "crosshair";
+    }
+
+    function getPoint(event) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const point = getPoint(event);
+      pointer.id = event.pointerId;
+      pointer.down = true;
+      pointer.x = point.x;
+      pointer.y = point.y;
+      canvas.setPointerCapture(event.pointerId);
+
+      if (view.mode === "ball") {
+        if (ball.sunk) return;
+        ball.aiming = true;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.aimX = point.x;
+        ball.aimY = point.y;
+        setBallStatus("瞄準中", false);
+      }
+
+      if (view.mode === "rope") {
+        rope.anchorX = point.x;
+        rope.anchorY = point.y;
+      }
+
+      if (view.mode === "mole") {
+        const hit = findHole(point.x, point.y);
+        if (hit) {
+          holdHole(hit, event.pointerId);
+        }
+      }
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (!pointer.down || pointer.id !== event.pointerId) return;
+      event.preventDefault();
+      const point = getPoint(event);
+      pointer.x = point.x;
+      pointer.y = point.y;
+
+      if (view.mode === "ball" && ball.aiming) {
+        ball.aimX = point.x;
+        ball.aimY = point.y;
+      }
+
+      if (view.mode === "rope") {
+        rope.anchorX = clamp(point.x, 70, view.w - 70);
+        rope.anchorY = clamp(point.y, 60, view.h - 60);
+      }
+    });
+
+    function releasePointer(event) {
+      if (pointer.id !== event.pointerId) return;
+      event.preventDefault();
+      pointer.down = false;
+      pointer.id = null;
+
+      if (view.mode === "ball" && ball.aiming) {
+        launchBall();
+      }
+
+      if (view.mode === "mole" && mole.heldPointer === event.pointerId) {
+        releaseHeldHole();
+      }
+    }
+
+    canvas.addEventListener("pointerup", releasePointer);
+    canvas.addEventListener("pointercancel", releasePointer);
+    canvas.addEventListener("lostpointercapture", () => {
+      pointer.down = false;
+      if (view.mode === "mole") releaseHeldHole();
+    });
+
+    function launchBall() {
+      if (ball.sunk) return;
+      const dx = ball.aimX - ball.x;
+      const dy = ball.aimY - ball.y;
+      const len = Math.hypot(dx, dy);
+      ball.aiming = false;
+      if (len < 18) {
+        setBallStatus("準備發射", false);
+        return;
+      }
+      const power = Number(powerInput.value);
+      ball.vx = (dx / len) * power;
+      ball.vy = (dy / len) * power;
+      ball.trail.length = 0;
+      setBallStatus("高速移動中", false);
+    }
+
+    function findHole(x, y) {
+      return mole.holes.find((hole) => {
+        const nx = (x - hole.x) / (hole.rx * 1.35);
+        const ny = (y - hole.y) / (hole.ry * 1.55);
+        return nx * nx + ny * ny <= 1;
+      });
+    }
+
+    function holdHole(hole, pointerId) {
+      releaseHeldHole();
+      mole.heldPointer = pointerId;
+      mole.heldHole = hole;
+      mole.mouse.forcedHole = hole;
+      mole.mouse.popTarget = 0;
+      pickMouseTarget(hole);
+      moleStatus.textContent = "老鼠靠近中";
+    }
+
+    function releaseHeldHole() {
+      mole.heldPointer = null;
+      mole.heldHole = null;
+      if (mole.randomTimer <= 0) {
+        mole.mouse.forcedHole = null;
+      }
+      mole.mouse.popTarget = 0;
+      moleStatus.textContent = "等待洞口輸入";
+    }
+
+    function randomPeek() {
+      releaseHeldHole();
+      const hole = mole.holes[Math.floor(Math.random() * mole.holes.length)];
+      if (!hole) return;
+      mole.mouse.forcedHole = hole;
+      mole.mouse.popTarget = 0;
+      pickMouseTarget(hole);
+      mole.randomTimer = 2.2;
+      moleStatus.textContent = "隨機露頭";
+    }
+
+    function hideMoles() {
+      releaseHeldHole();
+      mole.randomTimer = 0;
+      mole.mouse.forcedHole = null;
+      mole.mouse.popTarget = 0;
+      pickMouseTarget();
+    }
+
+    function update(dt) {
+      if (view.mode === "ball") {
+        updateBall(dt);
+      }
+
+      if (view.mode === "rope") {
+        updateRope(dt);
+      }
+
+      updateMoles(dt);
+    }
+
+    function updateBall(dt) {
+      if (ball.sunk) {
+        ball.sink = Math.min(1, ball.sink + dt * 2.8);
+        if (ball.sinkHole) {
+          ball.x = lerp(ball.x, ball.sinkHole.x, 1 - Math.pow(0.0002, dt));
+          ball.y = lerp(ball.y, ball.sinkHole.y, 1 - Math.pow(0.0002, dt));
+        }
+        return;
+      }
+
+      if (ball.aiming) return;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+
+      const hole = findBallHole(ball.x, ball.y);
+      if (hole && Math.hypot(ball.vx, ball.vy) > 45) {
+        sinkBall(hole);
+        return;
+      }
+
+      const damping = 0.94;
+      if (ball.x < ball.r) {
+        ball.x = ball.r;
+        ball.vx = Math.abs(ball.vx) * damping;
+      }
+      if (ball.x > view.w - ball.r) {
+        ball.x = view.w - ball.r;
+        ball.vx = -Math.abs(ball.vx) * damping;
+      }
+      if (ball.y < ball.r) {
+        ball.y = ball.r;
+        ball.vy = Math.abs(ball.vy) * damping;
+      }
+      if (ball.y > view.h - ball.r) {
+        ball.y = view.h - ball.r;
+        ball.vy = -Math.abs(ball.vy) * damping;
+      }
+
+      const friction = Math.pow(0.995, dt * 60);
+      ball.vx *= friction;
+      ball.vy *= friction;
+
+      if (Math.hypot(ball.vx, ball.vy) < 16) {
+        ball.vx = 0;
+        ball.vy = 0;
+        setBallStatus("準備發射", false);
+      }
+
+      if (Math.hypot(ball.vx, ball.vy) > 20) {
+        ball.trail.push({ x: ball.x, y: ball.y, life: 1 });
+        if (ball.trail.length > 42) ball.trail.shift();
+      }
+      ball.trail.forEach((dot) => {
+        dot.life -= dt * 1.8;
+      });
+      ball.trail = ball.trail.filter((dot) => dot.life > 0);
+    }
+
+    function updateRope(dt) {
+      rope.anchorX += rope.moveJoy.x * 340 * dt;
+      rope.anchorY += rope.moveJoy.y * 280 * dt;
+      rope.anchorX = clamp(rope.anchorX, 70, view.w - 70);
+      rope.anchorY = clamp(rope.anchorY, 60, view.h - getRopeBottomOffset());
+
+      const wavePower = Math.hypot(rope.waveJoy.x, rope.waveJoy.y);
+      if (wavePower > 0.05) {
+        rope.waveSpeed += (4.8 + wavePower * 18) * dt;
+        rope.waveEnergy = Math.min(1, rope.waveEnergy + wavePower * dt * 5.5);
+      } else {
+        rope.waveSpeed *= Math.pow(0.78, dt * 60);
+        rope.waveEnergy *= Math.pow(0.965, dt * 60);
+        if (rope.waveEnergy < 0.015 && Math.abs(rope.waveSpeed) < 0.015) {
+          rope.waveEnergy = 0;
+          rope.waveSpeed = 0;
+        }
+      }
+
+      const targetPullX = wavePower > 0.05 ? rope.waveJoy.x : 0.35;
+      const targetPullY = wavePower > 0.05 ? rope.waveJoy.y + 0.62 : 0.82;
+      const follow = wavePower > 0.05 ? 0.001 : 0.03;
+      rope.pullX = lerp(rope.pullX, targetPullX, 1 - Math.pow(follow, dt));
+      rope.pullY = lerp(rope.pullY, targetPullY, 1 - Math.pow(follow, dt));
+      if (wavePower <= 0.05 && rope.waveEnergy === 0 && rope.waveSpeed === 0) {
+        if (Math.abs(rope.pullX - targetPullX) < 0.004) rope.pullX = targetPullX;
+        if (Math.abs(rope.pullY - targetPullY) < 0.004) rope.pullY = targetPullY;
+      }
+      rope.phase += rope.waveSpeed * dt;
+    }
+
+    function updateMoles(dt) {
+      const mouse = mole.mouse;
+      if (!mouse.ready) {
+        syncUndergroundMouse();
+      }
+      mouse.phase += dt;
+
+      const forcedHole = mouse.forcedHole;
+      if (forcedHole) {
+        pickMouseTarget(forcedHole);
+        mouse.pause = 0;
+      }
+
+      const dx = mouse.targetX - mouse.x;
+      const dy = mouse.targetY - mouse.y;
+      const distance = Math.hypot(dx, dy);
+      const speed = forcedHole ? 430 : 185;
+      if (!forcedHole && distance <= 1 && mouse.pause > 0) {
+        mouse.pause -= dt;
+      } else if (distance > 1) {
+        const step = Math.min(distance, speed * dt);
+        mouse.x += (dx / distance) * step;
+        mouse.y += (dy / distance) * step;
+        mouse.direction = dx >= 0 ? 1 : -1;
+      } else if (!forcedHole) {
+        pickMouseTarget();
+        mouse.pause = 0.45 + Math.random() * 0.45;
+      }
+
+      if (forcedHole) {
+        const center = holeTunnelCenter(forcedHole);
+        const closeEnough = Math.hypot(mouse.x - center.x, mouse.y - center.y) < forcedHole.rx * 0.36;
+        mouse.popTarget = closeEnough ? 1 : 0;
+        if (mole.heldHole && closeEnough) {
+          moleStatus.textContent = "老鼠探出中";
+        }
+      } else {
+        mouse.popTarget = 0;
+      }
+
+      if (mole.randomTimer > 0) {
+        mole.randomTimer -= dt;
+        if (mole.randomTimer <= 0) {
+          if (!mole.heldHole) {
+            mouse.forcedHole = null;
+            mouse.popTarget = 0;
+            pickMouseTarget();
+          }
+          moleStatus.textContent = "等待洞口輸入";
+        }
+      }
+
+      mouse.pop = lerp(mouse.pop, mouse.popTarget, 1 - Math.pow(0.0002, dt));
+    }
+
+    function draw() {
+      drawBackground();
+
+      if (view.mode === "ball") {
+        drawBallMode();
+      } else if (view.mode === "rope") {
+        drawRopeMode();
+      } else {
+        drawMoleMode();
+      }
+
+      drawVignette();
+    }
+
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, view.h);
+      sky.addColorStop(0, "#123f22");
+      sky.addColorStop(0.48, "#1d5d2b");
+      sky.addColorStop(1, "#0d2415");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, view.w, view.h);
+
+      const light = ctx.createRadialGradient(view.w * 0.55, view.h * 0.12, 10, view.w * 0.55, view.h * 0.12, view.w * 0.72);
+      light.addColorStop(0, "rgba(197, 242, 137, 0.22)");
+      light.addColorStop(1, "rgba(197, 242, 137, 0)");
+      ctx.fillStyle = light;
+      ctx.fillRect(0, 0, view.w, view.h);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      for (let i = 0; i < 80; i++) {
+        const x = seeded(i, 13) * view.w;
+        const y = seeded(i, 29) * view.h;
+        const len = 10 + seeded(i, 41) * 22;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.45 + seeded(i, 7) * 0.9);
+        ctx.fillRect(0, 0, 1.5, len);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = "rgba(42, 25, 14, 0.72)";
+      ctx.lineWidth = 18;
+      ctx.strokeRect(8, 8, Math.max(0, view.w - 16), Math.max(0, view.h - 16));
+      ctx.strokeStyle = "rgba(241, 198, 106, 0.34)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(18, 18, Math.max(0, view.w - 36), Math.max(0, view.h - 36));
+    }
+
+    function drawBallMode() {
+      drawPebbles(16);
+      drawCornerHoles();
+      drawTrajectory();
+      drawBallTrail();
+      drawBall();
+    }
+
+    function drawCornerHoles() {
+      getCornerHoles().forEach((hole) => {
+        ctx.save();
+        ctx.translate(hole.x, hole.y);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
+        ctx.beginPath();
+        ctx.ellipse(5, 7, hole.rx * 1.18, hole.ry * 1.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#5f3d21";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, hole.rx * 1.08, hole.ry * 1.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#1b1009";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, hole.rx * 0.88, hole.ry * 0.82, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(241, 198, 106, 0.58)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, -2, hole.rx * 0.92, hole.ry * 0.86, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      });
+    }
+
+    function drawTrajectory() {
+      if (!ball.aiming) return;
+      const dx = ball.aimX - ball.x;
+      const dy = ball.aimY - ball.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 18) return;
+      const power = Number(powerInput.value);
+      let vx = (dx / len) * power;
+      let vy = (dy / len) * power;
+      let x = ball.x;
+      let y = ball.y;
+      let projectedHole = null;
+
+      ctx.save();
+      ctx.setLineDash([16, 11]);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(255, 216, 61, 0.2)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+
+      for (let step = 0; step < 180; step++) {
+        x += vx * 0.018;
+        y += vy * 0.018;
+        projectedHole = findBallHole(x, y);
+        if (projectedHole) {
+          x = projectedHole.x;
+          y = projectedHole.y;
+          ctx.lineTo(x, y);
+          break;
+        }
+        if (x < ball.r) {
+          x = ball.r;
+          vx = Math.abs(vx) * 0.94;
+        }
+        if (x > view.w - ball.r) {
+          x = view.w - ball.r;
+          vx = -Math.abs(vx) * 0.94;
+        }
+        if (y < ball.r) {
+          y = ball.r;
+          vy = Math.abs(vy) * 0.94;
+        }
+        if (y > view.h - ball.r) {
+          y = view.h - ball.r;
+          vy = -Math.abs(vy) * 0.94;
+        }
+        const friction = Math.pow(0.995, 1.08);
+        vx *= friction;
+        vy *= friction;
+        ctx.lineTo(x, y);
+        if (Math.hypot(vx, vy) < 70) break;
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (projectedHole) {
+        ctx.strokeStyle = "rgba(110, 230, 255, 0.86)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(projectedHole.x, projectedHole.y, Math.max(projectedHole.ry, 18), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ball.x, ball.y);
+      ctx.lineTo(ball.aimX, ball.aimY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawBallTrail() {
+      ball.trail.forEach((dot) => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.34 * dot.life})`;
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, ball.r * (0.28 + dot.life * 0.28), 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawBall() {
+      const sunkScale = ball.sunk ? 1 - ball.sink * 0.72 : 1;
+      const sunkAlpha = ball.sunk ? 1 - ball.sink * 0.5 : 1;
+      ctx.save();
+      ctx.translate(ball.x, ball.y);
+      ctx.scale(sunkScale, sunkScale);
+      ctx.globalAlpha = sunkAlpha;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(4, ball.r * 0.88, ball.r * 1.15, ball.r * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const gradient = ctx.createRadialGradient(-ball.r * 0.35, -ball.r * 0.4, 3, 0, 0, ball.r);
+      gradient.addColorStop(0, "#ffffff");
+      gradient.addColorStop(0.56, "#f6fbf2");
+      gradient.addColorStop(1, "#cfd9c8");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.86)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, ball.r * 0.72, -0.4, 2.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawRopeMode() {
+      drawPebbles(9);
+
+      const length = getRopeLength();
+      const pullLen = Math.hypot(rope.pullX, rope.pullY) || 1;
+      const dirX = rope.pullX / pullLen;
+      const dirY = rope.pullY / pullLen;
+      const normalX = -dirY;
+      const normalY = dirX;
+      const wavePower = Math.hypot(rope.waveJoy.x, rope.waveJoy.y);
+      const energy = clamp(Math.max(rope.waveEnergy, wavePower * 0.6), 0, 1);
+      const amp = energy * 74;
+
+      const points = [];
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24;
+        const swing = Math.sin(rope.phase + t * 9.5) * amp * Math.sin(t * Math.PI);
+        const curl = Math.sin(rope.phase * 1.7 + t * 18) * 10 * energy * t;
+        points.push({
+          x: rope.anchorX + dirX * length * t + normalX * swing + dirX * curl,
+          y: rope.anchorY + dirY * length * t + normalY * swing + dirY * curl
+        });
+      }
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(20, 12, 6, 0.46)";
+      ctx.lineWidth = 14;
+      strokeCurve(points);
+      ctx.strokeStyle = "#f1c66a";
+      ctx.lineWidth = 7;
+      strokeCurve(points);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.48)";
+      ctx.lineWidth = 2;
+      strokeCurve(points.slice(0, -2));
+
+      drawAnchor(rope.anchorX, rope.anchorY);
+      drawTassel(points[points.length - 1], rope.phase, energy);
+    }
+
+    function strokeCurve(points) {
+      if (!points.length) return;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const midX = (points[i].x + points[i + 1].x) / 2;
+        const midY = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+      }
+      const end = points[points.length - 1];
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    }
+
+    function drawAnchor(x, y) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.beginPath();
+      ctx.arc(x + 3, y + 5, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#91e35f";
+      ctx.beginPath();
+      ctx.arc(x, y, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawTassel(point, phase, energy) {
+      ctx.save();
+      ctx.translate(point.x, point.y);
+      ctx.rotate(Math.sin(phase) * 0.75 * energy);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(4, 11, 28, 13, 0.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      const colors = ["#ff7a45", "#ffd83d", "#6ee6ff", "#f36aa6"];
+      for (let i = 0; i < 7; i++) {
+        const angle = -0.9 + i * 0.3 + Math.sin(phase + i) * 0.16 * energy;
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.ellipse(0, 16, 8, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = "#fff6b0";
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawMoleMode() {
+      mole.holes.forEach(drawHole);
+    }
+
+    function drawHole(hole) {
+      ctx.save();
+      ctx.translate(hole.x, hole.y);
+
+      const holeRx = hole.rx * 1.04;
+      const holeRy = hole.ry * 0.74;
+      const chamberRx = holeRx * 0.86;
+      const chamberRy = holeRy * 0.74;
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(7, 9, holeRx * 1.12, holeRy * 1.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const dirt = ctx.createLinearGradient(0, -holeRy, 0, holeRy);
+      dirt.addColorStop(0, "#7b4b25");
+      dirt.addColorStop(0.56, "#432514");
+      dirt.addColorStop(1, "#1b0f08");
+      ctx.fillStyle = dirt;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, holeRx, holeRy, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const chamber = ctx.createRadialGradient(-chamberRx * 0.25, -chamberRy * 0.3, 4, 0, 0, chamberRx);
+      chamber.addColorStop(0, "#322114");
+      chamber.addColorStop(0.55, "#1a0f09");
+      chamber.addColorStop(1, "#080503");
+      ctx.fillStyle = chamber;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, chamberRx, chamberRy, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, chamberRx * 0.98, chamberRy * 0.94, 0, 0, Math.PI * 2);
+      ctx.clip();
+
+      const mouse = mole.mouse;
+      const localMouseX = mouse.x - hole.x;
+      const localMouseY = mouse.y - hole.y;
+      const nx = localMouseX / (chamberRx * 0.92);
+      const ny = localMouseY / (chamberRy * 0.95);
+      const visibility = clamp(1 - (nx * nx + ny * ny), 0, 1);
+      const tunnelAlpha = visibility * (1 - mouse.pop * 0.92) * 0.8;
+      if (tunnelAlpha > 0.04) {
+        const drawDirection = -mouse.direction;
+        const safeMouseX = clamp(localMouseX * 0.78 + drawDirection * 14, -chamberRx * 0.82, chamberRx * 0.82);
+        const safeMouseY = clamp(localMouseY * 0.78, -chamberRy * 0.76, chamberRy * 0.76);
+        drawTunnelMouse(safeMouseX, safeMouseY, drawDirection, 2.25, tunnelAlpha, mouse.phase);
+      }
+      ctx.restore();
+
+      ctx.strokeStyle = "rgba(26, 13, 7, 0.85)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, holeRx * 0.98, holeRy * 0.96, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(148, 94, 45, 0.62)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, chamberRx, chamberRy, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (mouse.forcedHole === hole && mouse.pop > 0.02) {
+        const rise = easeOutBack(mouse.pop);
+        const bottomY = lerp(holeRy + 28, holeRy - 2, rise);
+        drawPopMouse(0, bottomY, mouse.pop);
+      }
+
+      ctx.restore();
+    }
+
+    function drawPopMouse(x, bottomY, alpha) {
+      ctx.save();
+      ctx.translate(x, bottomY);
+      ctx.globalAlpha = clamp(alpha, 0, 1);
+
+      if (upRatImage.complete && upRatImage.naturalWidth > 0) {
+        const width = 141;
+        const height = width * (upRatImage.naturalHeight / upRatImage.naturalWidth);
+        ctx.drawImage(upRatImage, -width / 2, -height, width, height);
+      } else {
+        ctx.fillStyle = "#eee1c7";
+        ctx.beginPath();
+        ctx.ellipse(0, -34, 27, 32, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawTunnelMouse(x, y, direction, scale, alpha, phase) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(direction * scale, scale);
+      ctx.globalAlpha = alpha;
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
+      ctx.beginPath();
+      ctx.ellipse(0, 10, 32, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (ratImage.complete && ratImage.naturalWidth > 0) {
+        const width = 52;
+        const height = width * (ratImage.naturalHeight / ratImage.naturalWidth);
+        ctx.drawImage(ratImage, -width / 2, -height / 2, width, height);
+      } else {
+        ctx.fillStyle = "#eee1c7";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 28, 15, 0.05, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawMouse(x, y, scale, wink) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(0.86 + scale * 0.16, 0.86 + scale * 0.16);
+
+      ctx.fillStyle = "#c9b69d";
+      ctx.beginPath();
+      ctx.ellipse(-18, -22, 12, 14, -0.45, 0, Math.PI * 2);
+      ctx.ellipse(18, -22, 12, 14, 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f1d1bc";
+      ctx.beginPath();
+      ctx.ellipse(-18, -22, 6, 8, -0.45, 0, Math.PI * 2);
+      ctx.ellipse(18, -22, 6, 8, 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      const body = ctx.createRadialGradient(-8, -12, 4, 0, 0, 36);
+      body.addColorStop(0, "#eee1c7");
+      body.addColorStop(1, "#8f8274");
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 31, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#10140e";
+      ctx.beginPath();
+      ctx.arc(-10, -7, 3.8, 0, Math.PI * 2);
+      ctx.arc(10, -7, 3.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (Math.sin(wink * 3) > 0.96) {
+        ctx.strokeStyle = "#10140e";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(6, -7);
+        ctx.lineTo(14, -7);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#f36aa6";
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 4.5, 3.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(16, 20, 14, 0.55)";
+      ctx.lineWidth = 1.5;
+      for (let side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 4, 8);
+        ctx.lineTo(side * 24, 3);
+        ctx.moveTo(side * 4, 10);
+        ctx.lineTo(side * 24, 12);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPebbles(count) {
+      for (let i = 0; i < count; i++) {
+        const x = seeded(i, 91) * view.w;
+        const y = seeded(i, 113) * view.h;
+        const rx = 5 + seeded(i, 131) * 15;
+        const ry = 3 + seeded(i, 151) * 8;
+        ctx.fillStyle = i % 2 ? "rgba(241, 198, 106, 0.16)" : "rgba(255, 255, 255, 0.08)";
+        ctx.beginPath();
+        ctx.ellipse(x, y, rx, ry, seeded(i, 17) * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawVignette() {
+      const vignette = ctx.createRadialGradient(view.w / 2, view.h / 2, view.w * 0.25, view.w / 2, view.h / 2, view.w * 0.78);
+      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+      vignette.addColorStop(1, "rgba(0, 0, 0, 0.35)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, view.w, view.h);
+    }
+
+    function setupJoystick(id, target) {
+      const joy = document.querySelector(id);
+      const knob = joy.querySelector(".knob");
+      const value = { x: 0, y: 0 };
+      let activePointer = null;
+
+      function setFromEvent(event) {
+        const rect = joy.getBoundingClientRect();
+        const radius = rect.width / 2;
+        const centerX = rect.left + radius;
+        const centerY = rect.top + radius;
+        const dx = event.clientX - centerX;
+        const dy = event.clientY - centerY;
+        const len = Math.hypot(dx, dy);
+        const limit = radius * 0.62;
+        const clamped = len > limit ? limit / len : 1;
+        value.x = (dx * clamped) / limit;
+        value.y = (dy * clamped) / limit;
+        knob.style.transform = `translate(calc(-50% + ${value.x * limit}px), calc(-50% + ${value.y * limit}px))`;
+        target.x = value.x;
+        target.y = value.y;
+      }
+
+      function reset() {
+        activePointer = null;
+        value.x = 0;
+        value.y = 0;
+        target.x = 0;
+        target.y = 0;
+        knob.style.transform = "translate(-50%, -50%)";
+      }
+
+      joy.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        activePointer = event.pointerId;
+        joy.setPointerCapture(event.pointerId);
+        setFromEvent(event);
+      });
+
+      joy.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== activePointer) return;
+        event.preventDefault();
+        setFromEvent(event);
+      });
+
+      joy.addEventListener("pointerup", reset);
+      joy.addEventListener("pointercancel", reset);
+      joy.addEventListener("lostpointercapture", reset);
+    }
+
+    function tick(now) {
+      const dt = Math.min(0.033, (now - view.last) / 1000 || 0.016);
+      view.last = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function seeded(i, salt) {
+      return fract(Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453);
+    }
+
+    function fract(value) {
+      return value - Math.floor(value);
+    }
+
+    function easeOutBack(x) {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+
+    document.querySelector("#resetBall").addEventListener("click", resetBall);
+    restartBallButton.addEventListener("click", resetBall);
+    document.querySelector("#stopBall").addEventListener("click", () => {
+      if (ball.sunk) return;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.trail.length = 0;
+      setBallStatus("準備發射", false);
+    });
+    document.querySelector("#peekRandom").addEventListener("click", randomPeek);
+    document.querySelector("#hideMoles").addEventListener("click", hideMoles);
+    document.querySelector("#fullscreen").addEventListener("click", async () => {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        await document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    setupJoystick("#moveJoy", rope.moveJoy);
+    setupJoystick("#waveJoy", rope.waveJoy);
+
+    window.addEventListener("resize", resize);
+    resize();
+    setMode("ball");
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
